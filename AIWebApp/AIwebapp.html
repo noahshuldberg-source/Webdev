@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consonant — 9-Letter Wordle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #000000;
+    --surface: #181818;
+    --surface2: #222222;
+    --border: rgba(255,255,255,0.15);
+    --border-em: rgba(255,255,255,0.3);
+    --text: #f0ede6;
+    --text-muted: #888;
+    --text-dim: #444;
+    --green: #238a5e;
+    --green-bg: #1a5c3f;
+    --green-text: #6edba8;
+    --amber: #b07d10;
+    --amber-bg: #6b4a08;
+    --amber-text: #f0c050;
+    --red: #c0392b;
+    --red-bg: #5c1a14;
+    --red-text: #f08070;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  header {
+    width: 100%;
+    max-width: 640px;
+    padding: 1.5rem 1rem 0;
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    border-bottom: 0.5px solid var(--border);
+    padding-bottom: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.6rem;
+    letter-spacing: 4px;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .sub {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  #app {
+    width: 100%;
+    max-width: 640px;
+    padding: 0 1rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .vowel-badge {
+    display: inline-block;
+    background: var(--red-bg);
+    color: var(--red-text);
+    font-size: 10px;
+    padding: 4px 12px;
+    border-radius: var(--radius);
+    border: 0.5px solid rgba(192,57,43,0.35);
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 1.25rem;
+    letter-spacing: 0.5px;
+  }
+
+  .guess-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 1.25rem;
+    width: 100%;
+  }
+
+  .guess-row {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 5px;
+  }
+
+  .guess-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(1rem, 3vw, 1.5rem);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    transition: border-color 0.15s;
+    user-select: none;
+  }
+
+  .guess-cell.filled { border-color: var(--border-em); }
+  .guess-cell.correct { border-color: var(--green); background: var(--green-bg); color: var(--green-text); }
+  .guess-cell.present { border-color: var(--amber); background: var(--amber-bg); color: var(--amber-text); }
+  .guess-cell.absent  { border-color: var(--border); background: var(--surface); color: var(--text-dim); }
+
+  @keyframes flip {
+    0%   { transform: rotateX(0deg); }
+    50%  { transform: rotateX(90deg); background: var(--surface2); }
+    100% { transform: rotateX(0deg); }
+  }
+
+  @keyframes pop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%     { transform: translateX(-6px); }
+    40%     { transform: translateX(6px); }
+    60%     { transform: translateX(-4px); }
+    80%     { transform: translateX(4px); }
+  }
+
+  .guess-row.shake { animation: shake 0.4s ease; }
+
+  .msg {
+    font-size: 11px;
+    color: var(--text-muted);
+    min-height: 20px;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.75rem;
+    text-align: center;
+  }
+  .msg.win  { color: var(--green-text); }
+  .msg.lose { color: var(--red-text); }
+
+  .legend {
+    display: flex;
+    gap: 14px;
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .dot {
+    width: 10px; height: 10px;
+    border-radius: 3px;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .keyboard {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 1.25rem;
+    width: 100%;
+  }
+
+  .kb-row {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+  }
+
+  .key {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 12px 8px;
+    min-width: 32px;
+    border: 0.5px solid var(--border-em);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.12s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .key:hover  { background: var(--surface2); border-color: rgba(255,255,255,0.35); }
+  .key:active { transform: scale(0.94); }
+  .key.wide   { min-width: 54px; font-size: 9px; }
+  .key.correct { background: var(--green-bg); border-color: var(--green); color: var(--green-text); }
+  .key.present { background: var(--amber-bg); border-color: var(--amber); color: var(--amber-text); }
+  .key.absent  { background: transparent; color: var(--text-dim); border-color: var(--border); }
+
+  .btn-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  button.action {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    padding: 9px 18px;
+    border: 0.5px solid var(--border-em);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  button.action:hover  { color: var(--text); border-color: rgba(255,255,255,0.4); background: var(--surface); }
+  button.action:active { transform: scale(0.97); }
+  a{
+    text-decoration: none;
+    color: dimgray;
+    font-family: 'Space Mono', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Consonant</h1>
+  <div class="sub">9-letter wordle · minimum vowels</div>
+  <br><br>
+  <a href="../scratch.html">Go back home</a>
+</header>
+
+<div id="app">
+  <div id="vowel-info" class="vowel-badge">Loading...</div>
+
+  <div class="guess-grid" id="guess-grid"></div>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="legend">
+    <span><span class="dot" style="background:#1D9E75"></span>correct position</span>
+    <span><span class="dot" style="background:#BA7517"></span>wrong position</span>
+    <span><span class="dot" style="background:#333;border:0.5px solid #444"></span>not in word</span>
+  </div>
+
+  <div class="keyboard" id="keyboard"></div>
+
+  <div class="btn-row">
+    <button class="action" id="btn-new">New word ↺</button>
+    <button class="action" id="btn-reveal">Reveal ⊡</button>
+  </div>
+</div>
+
+<script>
+const WORDS = [
+  "STRENGTHS","BIRTHDAYS","CHRYSALIS","WATCHDOGS","LYMPHATIC",
+  "PRANKSTER","CRYBABIES","DYSTROPHY","BENCHMARK","CRAFTSMEN",
+  "GRAPPLING","PRINTWORK","BLACKBIRD","WRISTBAND","FLASHBACK",
+  "CLOCKWORK","THUMBTACK","BIRTHMARK","CRUMBLING","DRAGONFLY",
+  "FRAMEWORK","GRUMBLERS","HANDCRAFT","CRAFTWORK","SKYDIVING",
+  "STOCKROOM","CATCHWORD","FLYWEIGHT","STORMWIND","BRICKWORK",
+  "CLAMSHELL","CRISPNESS","DRUMSTICK","FROSTBITE","GRINDWORK",
+  "HANDGRIPS","NIGHTCLUB","SCRATCHED","WINDSTORM","BLACKLIST",
+  "BRANCHLET","CRAFTLINK","DRIFTWOOD","FLINTLOCK","HITCHHIKE",
+  "LANDLORDS","MATCHBOOK","NIGHTFALL","OVERWATCH","SHIPWRECK",
+  "TRACKDOWN","WATCHBAND","WATCHLIST","BLOODWORK","CROSSWIND",
+  "DRIFTWORK","FRONTWORK","GLASSWORK","HANDWORKS","JUMPSTART",
+  "KNIFEWORK","MATCHWORK","NIGHTWORK","CRAFTINGS","GRUNTWORK",
+  "CLOCKHAND","CRUNCHING","BRANCHING","FROSTWORK","GLYPHWORK",
+  "PRINTSHOP","MYTHCRAFT","CRASHLAND","WINDCRAFT","STORMWORK"
+];
+
+const VOWELS = new Set(['A','E','I','O','U']);
+const MAX_GUESSES = 6;
+const WORD_LEN = 9;
+const KB_ROWS = [
+  ['Q','W','E','R','T','Y','U','I','O','P'],
+  ['A','S','D','F','G','H','J','K','L'],
+  ['ENTER','Z','X','C','V','B','N','M','⌫']
+];
+
+let target, guesses, current, gameOver, keyState;
+
+function countVowels(w) {
+  return [...w].filter(c => VOWELS.has(c)).length;
+}
+
+function pickWord() {
+  const minV = Math.min(...WORDS.map(countVowels));
+  const pool = WORDS.filter(w => countVowels(w) === minV);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function init() {
+  target = pickWord();
+  guesses = [];
+  current = '';
+  gameOver = false;
+  keyState = {};
+  document.getElementById('vowel-info').textContent = `vowels in word: ${countVowels(target)}`;
+  const msg = document.getElementById('msg');
+  msg.textContent = '';
+  msg.className = 'msg';
+  renderGrid();
+  renderKeyboard();
+}
+
+function renderGrid(animatingRow = -1) {
+  const grid = document.getElementById('guess-grid');
+  grid.innerHTML = '';
+  for (let r = 0; r < MAX_GUESSES; r++) {
+    const row = document.createElement('div');
+    row.className = 'guess-row';
+    row.id = `row-${r}`;
+    for (let c = 0; c < WORD_LEN; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'guess-cell';
+      cell.id = `cell-${r}-${c}`;
+      if (r < guesses.length && r !== animatingRow) {
+        const g = guesses[r];
+        cell.textContent = g.letters[c];
+        cell.className = 'guess-cell ' + g.result[c];
+      } else if (r === animatingRow) {
+        cell.textContent = guesses[r].letters[c];
+      } else if (r === guesses.length && c < current.length) {
+        cell.textContent = current[c];
+        cell.className = 'guess-cell filled';
+      }
+      row.appendChild(cell);
+    }
+    grid.appendChild(row);
+  }
+}
+
+function evalGuess(guess) {
+  const res = Array(WORD_LEN).fill('absent');
+  const tArr = [...target];
+  const gArr = [...guess];
+  const used = Array(WORD_LEN).fill(false);
+  for (let i = 0; i < WORD_LEN; i++) {
+    if (gArr[i] === tArr[i]) { res[i] = 'correct'; used[i] = true; }
+  }
+  for (let i = 0; i < WORD_LEN; i++) {
+    if (res[i] === 'correct') continue;
+    for (let j = 0; j < WORD_LEN; j++) {
+      if (!used[j] && gArr[i] === tArr[j]) { res[i] = 'present'; used[j] = true; break; }
+    }
+  }
+  return res;
+}
+
+function submit() {
+  if (gameOver) return;
+  if (current.length < WORD_LEN) {
+    showMsg('not enough letters');
+    const row = document.getElementById(`row-${guesses.length}`);
+    if (row) {
+      row.style.animation = 'none';
+      row.offsetHeight;
+      row.style.animation = 'shake 0.4s ease';
+    }
+    return;
+  }
+  const result = evalGuess(current);
+  const entry = { letters: [...current], result };
+  guesses.push(entry);
+  current = '';
+  const animRow = guesses.length - 1;
+  renderGrid(animRow);
+  animateRow(animRow, entry, () => {
+    updateKeyboard(entry);
+    const msg = document.getElementById('msg');
+    if (result.every(r => r === 'correct')) {
+      msg.textContent = 'brilliant! you got it!'; msg.className = 'msg win'; gameOver = true;
+    } else if (guesses.length >= MAX_GUESSES) {
+      msg.textContent = `game over · word was ${target}`; msg.className = 'msg lose'; gameOver = true;
+    }
+  });
+}
+
+function animateRow(r, entry, cb) {
+  for (let c = 0; c < WORD_LEN; c++) {
+    const cell = document.getElementById(`cell-${r}-${c}`);
+    const delay = c * 70;
+    setTimeout(() => {
+      cell.style.animation = 'none';
+      cell.offsetHeight;
+      cell.style.animation = 'flip 0.45s ease forwards';
+      setTimeout(() => {
+        cell.style.animation = '';
+        cell.className = 'guess-cell ' + entry.result[c];
+        cell.textContent = entry.letters[c];
+      }, 450);
+    }, delay);
+  }
+  setTimeout(cb, WORD_LEN * 70 + 500);
+}
+
+function renderKeyboard() {
+  const kb = document.getElementById('keyboard');
+  kb.innerHTML = '';
+  KB_ROWS.forEach(row => {
+    const r = document.createElement('div');
+    r.className = 'kb-row';
+    row.forEach(k => {
+      const btn = document.createElement('button');
+      btn.className = 'key' + (k.length > 1 ? ' wide' : '');
+      btn.textContent = k;
+      btn.dataset.key = k;
+      btn.addEventListener('click', () => handleKey(k));
+      r.appendChild(btn);
+    });
+    kb.appendChild(r);
+  });
+}
+
+function updateKeyboard(entry) {
+  entry.letters.forEach((l, i) => {
+    const prev = keyState[l];
+    const r = entry.result[i];
+    if (r === 'correct' || (r === 'present' && prev !== 'correct') || (!prev && r === 'absent')) {
+      keyState[l] = r;
+    }
+  });
+  document.querySelectorAll('.key').forEach(btn => {
+    const s = keyState[btn.dataset.key];
+    if (s) btn.className = 'key' + (btn.dataset.key.length > 1 ? ' wide' : '') + ' ' + s;
+  });
+}
+
+function handleKey(k) {
+  if (gameOver) return;
+  if (k === 'ENTER') { submit(); return; }
+  if (k === '⌫' || k === 'BACKSPACE') {
+    if (current.length) current = current.slice(0, -1);
+    renderGrid(); return;
+  }
+  if (/^[A-Z]$/.test(k) && current.length < WORD_LEN) {
+    current += k;
+    renderGrid();
+    const cell = document.getElementById(`cell-${guesses.length}-${current.length - 1}`);
+    if (cell) { cell.style.animation = 'pop 0.12s ease'; }
+  }
+}
+
+function showMsg(t) {
+  const m = document.getElementById('msg');
+  m.textContent = t;
+  setTimeout(() => { if (m.textContent === t) m.textContent = ''; }, 1800);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.toUpperCase();
+  if (k === 'ENTER') handleKey('ENTER');
+  else if (k === 'BACKSPACE') handleKey('⌫');
+  else if (/^[A-Z]$/.test(k)) handleKey(k);
+});
+
+document.getElementById('btn-new').addEventListener('click', init);
+document.getElementById('btn-reveal').addEventListener('click', () => {
+  if (!gameOver) {
+    const m = document.getElementById('msg');
+    m.textContent = `word: ${target}`;
+    m.className = 'msg lose';
+    gameOver = true;
+  }
+});
+
+init();
+</script>
+</body>
+</html>
